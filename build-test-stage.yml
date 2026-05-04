@@ -1,0 +1,71 @@
+parameters:
+  vmImage: 'ubuntu-latest'
+  appVersion: ''
+  workingDirectory: 'devops'
+  dockerfilePath: 'Dockerfile'
+
+stages:
+- stage: BuildTest
+  displayName: 'Project: Build and Test'
+  dependsOn: PreBuild
+
+  variables:
+    APP_VERSION: ${{ parameters.appVersion }}
+
+  jobs:
+    - job: JobID_BuildAndTest
+      displayName: 'Build and Test'
+      pool:
+        vmImage: ${{ parameters.vmImage }}
+
+      steps:
+        - checkout: self
+
+        # 1. Налаштування Python
+        - script: |
+            echo "Building service version: $(APP_VERSION)"
+            python -m venv ${{ parameters.workingDirectory }}/.venv
+            source ${{ parameters.workingDirectory }}/.venv/bin/activate
+            python -m pip install --upgrade pip
+            pip install -r ${{ parameters.workingDirectory }}/requirements.txt
+          displayName: "Build Service"
+
+        # 2. Enable ORM test mode
+        - script: |
+            echo "Setting TEST_MODE for the environment"
+            echo "##vso[task.setvariable variable=TEST_MODE]true"
+          displayName: "Enable Test Mode"
+
+        # 3. Запуск Unit-тестів
+        - script: |
+            source ${{ parameters.workingDirectory }}/.venv/bin/activate
+            export PYTHONPATH=$(Build.SourcesDirectory)/${{ parameters.workingDirectory }}
+            export TEST_MODE=true
+            pytest ${{ parameters.workingDirectory }}/tests \
+              --maxfail=1 \
+              --disable-warnings \
+              -q
+          displayName: "Run Unit Tests"
+
+        # 4. Пакування артефакту тестів
+        - script: |
+            echo "Packaging application version: $(APP_VERSION)"
+            mkdir -p $(Build.ArtifactStagingDirectory)/publish
+            cp -r ${{ parameters.workingDirectory }}/* $(Build.ArtifactStagingDirectory)/publish/
+            find $(Build.ArtifactStagingDirectory)/publish -type d -name "__pycache__" -exec rm -rf {} +
+          displayName: "Prepare Artifacts"
+
+        # 5. Створення Zip
+        - script: |
+            cd $(Build.ArtifactStagingDirectory)
+            zip -r app-$(APP_VERSION).zip publish
+            echo "Created artifact: app-$(APP_VERSION).zip"
+          displayName: "Create Zip Package"
+
+        # 6. Відправка Zip
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)/app-$(APP_VERSION).zip'
+            ArtifactName: 'python-app-$(APP_VERSION)'
+            publishLocation: 'Container'
+          displayName: 'Upload Artifacts'

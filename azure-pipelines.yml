@@ -1,0 +1,76 @@
+trigger:
+  branches:
+    include:
+      - main
+      - feature/*
+
+variables:
+  - group: TRAVEL_PLANNER_VARIABLE_GROUP
+  - name: DockerID
+    value: "$(DOCKER_ID)"
+  - name: DockerToken
+    value: "$(DOCKER_TOKEN)"
+  - name: DockerRepo
+    value: "$(DOCKER_REPO)"
+  - name: ServiceName
+    value: "$(SERVICE_NAME)"
+
+resources:
+  repositories:
+    - repository: ci-templates
+      type: git
+      name: TravelPlan/ci-templates
+      ref: main
+
+
+stages:
+
+# Stage 1 — Pre-Build
+- template: templates/stages/prebuild-stage.yml@ci-templates
+  parameters:
+    vmImage: 'ubuntu-latest'
+    dockerId: $(DockerID)
+    dockerRepo: $(DockerRepo)
+    serviceName: $(ServiceName)
+    dockerToken: $(DockerToken)
+
+# Stage 2 — Build
+- template: templates/stages/build-test-stage.yml@ci-templates
+  parameters:
+    vmImage: 'ubuntu-latest'
+    appVersion: $[ stageDependencies.PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    workingDirectory: 'devops'
+    dockerfilePath: 'Dockerfile'
+
+# Stage 3 — Docker Build and Push
+- template: templates/stages/docker-build-push-stage.yml@ci-templates
+  parameters:
+    vmImage: 'ubuntu-latest'
+    appVersion: $[ stageDependencies.PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    dockerId: $(DockerID)
+    dockerToken: $(DockerToken)
+    serviceName: $(ServiceName)
+    dockerfilePath: 'Dockerfile'
+
+# Stage 4 — Post-Build
+- stage: PostBuild
+  displayName: 'Post-Build'
+  dependsOn:
+    - PreBuild
+    - BuildTest
+    - DockerBuildAndPush
+
+  condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+  variables:
+    APP_VERSION: $[ stageDependencies.PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+  jobs:
+    - job: JobID_PostBuild
+      displayName: 'Post-Build Info'
+      pool:
+        vmImage: 'ubuntu-latest'
+
+      steps:
+        - script: |
+            echo "Application version: $(APP_VERSION)"
+          displayName: "Print Application Version"
+

@@ -1,0 +1,137 @@
+parameters:
+  vmImage: 'ubuntu-latest'
+  appVersion: ''
+  dockerId: ''
+  dockerToken: ''
+  serviceName: ''
+  dockerfilePath: 'Dockerfile'
+
+stages:
+- stage: DockerBuildAndPush
+  displayName: 'Docker: Build and Push'
+
+  dependsOn:
+    - PreBuild
+    - BuildTest
+
+  condition: and(succeeded(), eq(variables['Build.SourceBranch'], 'refs/heads/main'))
+
+  variables:
+    APP_VERSION: ${{ parameters.appVersion }}
+
+  jobs:
+    - job: JobID_PostBuild
+      displayName: 'Docker Build and Push'
+      pool:
+        vmImage: ${{ parameters.vmImage }}
+
+      steps:
+        - checkout: self
+
+        # Збірка Docker image
+        - script: |
+            set -e
+            echo "Building Docker image: ${{ parameters.dockerId }}/${{ parameters.serviceName }}:$(APP_VERSION)"
+            cd $(Build.SourcesDirectory)
+            docker build \
+              -f ${{ parameters.dockerfilePath }} \
+              -t ${{ parameters.dockerId }}/${{ parameters.serviceName }}:$(APP_VERSION) \
+              -t ${{ parameters.dockerId }}/${{ parameters.serviceName }}:latest \
+              .
+            echo "Docker image built successfully"
+          displayName: "Docker Build"
+
+        # Docker Login + Push
+        - script: |
+            set -e
+            echo "Logging into Docker Hub..."
+            echo "${{ parameters.dockerToken }}" | docker login -u "${{ parameters.dockerId }}" --password-stdin
+            echo "Pushing version: $(APP_VERSION)"
+            docker push ${{ parameters.dockerId }}/${{ parameters.serviceName }}:$(APP_VERSION)
+            echo "Pushing latest tag"
+            docker push ${{ parameters.dockerId }}/${{ parameters.serviceName }}:latest
+            echo "Docker push completed"
+          displayName: "Docker Push"
+
+        # 3. Збірка Docker image (Migration Job)
+        - script: |
+            set -e
+            echo "Building MIGRATION Docker image..."
+            docker build \
+              -f ${{ parameters.migrationDockerfilePath }} \
+              -t ${{ parameters.dockerId }}/${{ parameters.serviceName }}-migration:$(APP_VERSION) \
+              -t ${{ parameters.dockerId }}/${{ parameters.serviceName }}-migration:latest \
+              .
+            echo "Migration image built successfully"
+          displayName: "Docker Build (Migration Job)"
+
+        # 4. Docker Login + Push (Migration Job)
+        - script: |
+            set -e
+            echo "Logging into Docker Hub..."
+            echo "${{ parameters.dockerToken }}" | docker login -u "${{ parameters.dockerId }}" --password-stdin
+            docker push ${{ parameters.dockerId }}/${{ parameters.serviceName }}-migration:$(APP_VERSION)
+            docker push ${{ parameters.dockerId }}/${{ parameters.serviceName }}-migration:latest
+            echo "Migration Docker push completed"
+          displayName: "Docker Push (Migration)"
+          condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+
+        # 3.Перевірка docker-compose.yaml
+        - script: |
+            echo "Checking docker-compose.yaml..."
+            sudo apt-get update && sudo apt-get install -y jq
+            docker compose config
+            echo "build"
+            docker compose build --no-cache
+            echo "Start DB"
+            docker compose up -d db
+            echo "Waiting for PostgreSQL to be ready..."
+            sleep 10
+            echo "db check version"
+            docker exec travel-postgres psql -U postgres -d travel_db -c "SELECT version();"
+            echo "Start API..."
+            docker compose up -d travel-planner-api
+            sleep 10
+            echo "Creating test user..."
+            RESPONSE=$(curl -s -X POST http://localhost:8000/users/ \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "Test User",
+              "email": "test@example.com",
+              "password": "123456"
+              }')
+            echo "Create response: $RESPONSE"
+            USER_ID=$(echo "$RESPONSE" | jq -r '.id')
+            echo "Created user ID: $USER_ID"
+            echo "Fetching created user..."
+            USER_GET=$(curl -s http://localhost:8000/users/$USER_ID)
+            echo "User from API: $USER_GET"
+            echo "$USER_GET" | grep "Test User"
+            echo "Starting full (API + DB)"
+            docker compose up -d
+            sleep 5
+            echo "Running final container check"
+            docker compose ps
+            echo "Cleanup containers"
+            docker compose down
+          displayName: 'Validate docker-compose'
+          condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
+
+        # Збереження як артефакту
+        - script: |
+            set -e
+            echo "Saving Docker image as artifact..."
+            mkdir -p $(Build.ArtifactStagingDirectory)/docker
+            docker save \
+              ${{ parameters.dockerId }}/${{ parameters.serviceName }}:$(APP_VERSION) \
+              -o $(Build.ArtifactStagingDirectory)/docker/image-$(APP_VERSION).tar
+            echo "Docker image saved to artifact folder"
+          displayName: "Save Docker Image"
+
+        # Публікація артефакту
+        - task: PublishBuildArtifacts@1
+          inputs:
+            PathtoPublish: '$(Build.ArtifactStagingDirectory)/docker'
+            ArtifactName: 'docker-image-$(APP_VERSION)'
+            publishLocation: 'Container'
+          displayName: "Publish Docker Artifact"

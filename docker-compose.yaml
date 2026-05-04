@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+
+  travel-planner-api:
+    image: sydorenkodmytro2021/travel-planner-api:latest
+    container_name: travel-planner-api
+
+    ports:
+      - "8000:8000"
+
+    environment:
+      APP_VERSION: local-dev
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/travel_db
+
+    depends_on:
+      db:
+        condition: service_healthy
+
+    pull_policy: if_not_present
+    restart: unless-stopped
+
+    networks:
+      - travel-network
+
+
+  db:
+    image: postgres:16
+    container_name: travel-postgres
+
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: travel_db
+
+    ports:
+      - "5432:5432"
+
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d travel_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 10s
+
+    networks:
+      - travel-network
+
+
+networks:
+  travel-network:
+    driver: bridge
+
+
+volumes:
+  postgres_data:

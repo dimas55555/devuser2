@@ -1,0 +1,70 @@
+parameters:
+  vmImage: 'ubuntu-latest'
+  dockerId: ''
+  dockerRepo: ''
+  serviceName: ''
+  dockerToken: ''
+
+stages:
+- stage: PreBuild
+  displayName: "Pre-Build"
+  jobs:
+    - job: JobID_PreBuild
+      displayName: "Pre-Build Analysis"
+      pool:
+        vmImage: ${{ parameters.vmImage }}
+
+      steps:
+        - checkout: self
+        - checkout: ci-templates  
+
+        # Змінні середовища
+        - script: |
+            source $(Build.SourcesDirectory)/ci-templates/common-scripts/logging.sh
+
+            info_msg "Hello, from Pre-Build Job"
+            info_msg "Agent.TempDirectory: $(Agent.TempDirectory)"
+            info_msg "Build.ArtifactStagingDirectory: $(Build.ArtifactStagingDirectory)"
+            info_msg "Build.Repository.LocalPath: $(Build.Repository.LocalPath)"
+            info_msg "Build.Repository.Name: $(Build.Repository.Name)"
+            info_msg "Build.SourceBranch: $(Build.SourceBranch)"
+            info_msg "Build.SourceBranchName: $(Build.SourceBranchName)"
+            info_msg "Build.SourcesDirectory: $(Build.SourcesDirectory)"
+            info_msg "Build.StagingDirectory: $(Build.StagingDirectory)"
+
+            info_msg "DockerID: ${{ parameters.dockerId }}"
+            info_msg "DockerRepo: ${{ parameters.dockerRepo }}"
+            info_msg "ServiceName: ${{ parameters.serviceName }}"
+            info_msg "DockerToken ${{ parameters.dockerToken }}"
+          displayName: "Predefined variables"
+
+        # Розрахунок версії
+        - script: |
+            source "$(Build.SourcesDirectory)/ci-templates/common-scripts/logging.sh"
+            source "$(Build.SourcesDirectory)/ci-templates/common-scripts/dockerhub.sh"
+
+            if [ -z "$(MANUALLY_SETUP_APP_VERSION)" ]; then
+              info_msg "MANUALLY_SETUP_APP_VERSION is not set"
+              info_msg "Fetching latest version from Docker Hub..."
+
+              LATEST_VERSION=$(get_docker_image_latest_version \
+                "${{ parameters.dockerId }}" \
+                "${{ parameters.dockerRepo }}")
+
+              info_msg "Latest version on Docker Hub: $LATEST_VERSION"
+
+              IFS='.' read -ra VERSION_PARTS <<< "$LATEST_VERSION"
+              MAJOR=${VERSION_PARTS[0]:-0}
+              MINOR=${VERSION_PARTS[1]:-0}
+              PATCH=$(( ${VERSION_PARTS[2]:-0} + 1 ))
+              APP_VERSION="$MAJOR.$MINOR.$PATCH"
+
+            else
+              info_msg "MANUALLY_SETUP_APP_VERSION is set to $(MANUALLY_SETUP_APP_VERSION)"
+              APP_VERSION="$(MANUALLY_SETUP_APP_VERSION)"
+            fi
+
+            info_msg "Application version: $APP_VERSION"
+            echo "##vso[task.setvariable variable=APP_VERSION;isOutput=true]$APP_VERSION"
+          displayName: "Calculate App Version"
+          name: CalculateAppVersion
