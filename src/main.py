@@ -11,7 +11,7 @@ from src.db import entities
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    #Base.metadata.create_all(bind=engine)
+    Base.metadata.create_all(bind=engine)
     yield
 
 

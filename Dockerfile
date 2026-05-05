@@ -6,7 +6,7 @@ ARG AppVersion
 ENV APP_VERSION=$AppVersion
 ENV PYTHONUNBUFFERED=1
 
-COPY devops/requirements.txt .
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
