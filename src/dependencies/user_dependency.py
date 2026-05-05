@@ -1,5 +1,4 @@
 from fastapi import Depends
-from functools import lru_cache
 from sqlalchemy.orm import Session
 
 from src.config import get_settings
@@ -8,13 +7,8 @@ from src.services.user_service import UserService
 from src.db.users_repository import UserRepository
 from src.services.user_storage import UserStorage
 
-def get_user_storage(db: Session = Depends(get_db)) -> UserStorage:
-    """
-    Returns:
-    - UserService (in-memory) if TEST_MODE = True
-    - UserRepository (DB) if TEST_MODE = False
-    """
 
+def get_user_storage(db: Session = Depends(get_db)) -> UserStorage:
     settings = get_settings()
 
     if settings.TEST_MODE:

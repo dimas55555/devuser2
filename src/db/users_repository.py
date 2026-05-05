@@ -1,40 +1,22 @@
-import uuid
-from typing import List, Optional
-from uuid import UUID
-
 from sqlalchemy.orm import Session
-
-from src.db.entities import User as UserDB
+from src.db.entities import User
 from src.models.user import User as UserModel
 from src.services.user_storage import UserStorage
+
 
 class UserRepository(UserStorage):
 
     def __init__(self, db: Session):
         self.db = db
 
-    def create_user(self, user: UserModel) -> UserModel:
-        db_user = UserDB(
-            id=uuid.uuid4(),
-            name=user.name,
-            email=user.email
+    def create_user(self, userModel: UserModel) -> UserModel:
+        user = User(
+            name=userModel.name,
+            email=userModel.email
         )
-
-        self.db.add(db_user)
+        self.db.add(user)
         self.db.commit()
-        self.db.refresh(db_user)
-
-        return UserModel(
-            id=db_user.id,
-            name=db_user.name,
-            email=db_user.email
-        )
-
-    def get_user(self, user_id: UUID) -> Optional[UserModel]:
-        user = self.db.query(UserDB).filter(UserDB.id == user_id).first()
-
-        if not user:
-            return None
+        self.db.refresh(user)
 
         return UserModel(
             id=user.id,
@@ -42,31 +24,35 @@ class UserRepository(UserStorage):
             email=user.email
         )
 
-    def get_users(self) -> List[UserModel]:
-        users = self.db.query(UserDB).all()
-
+    def get_users(self):
+        users = self.db.query(User).all()
         return [
             UserModel(id=u.id, name=u.name, email=u.email)
             for u in users
         ]
 
-    def update_user(self, user_id: UUID, user: UserModel) -> Optional[UserModel]:
-        db_user = self.db.query(UserDB).filter(UserDB.id == user_id).first()
-
-        if not db_user:
+    def get_user(self, user_id: int):
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
             return None
 
-        db_user.name = user.name
-        db_user.email = user.email
+        return UserModel(id=user.id, name=user.name, email=user.email)
+
+    def update_user(self, user_id: int, userModel: UserModel):
+        user = self.db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return None
+
+        user.name = userModel.name
+        user.email = userModel.email
 
         self.db.commit()
-        self.db.refresh(db_user)
+        self.db.refresh(user)
 
-        return user
+        return UserModel(id=user.id, name=user.name, email=user.email)
 
-    def delete_user(self, user_id: UUID) -> bool:
-        user = self.db.query(UserDB).filter(UserDB.id == user_id).first()
-
+    def delete_user(self, user_id: int) -> bool:
+        user = self.db.query(User).filter(User.id == user_id).first()
         if not user:
             return False
 

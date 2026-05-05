@@ -39,7 +39,7 @@ stages:
   parameters:
     vmImage: 'ubuntu-latest'
     appVersion: $[ stageDependencies.PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
-    workingDirectory: 'devops'
+    workingDirectory: '$(System.DefaultWorkingDirectory)'
     dockerfilePath: 'Dockerfile'
 
 # Stage 3 — Docker Build and Push
