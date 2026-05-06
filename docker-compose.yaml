@@ -16,6 +16,8 @@ services:
     depends_on:
       db:
         condition: service_healthy
+      migrations:
+        condition: service_completed_successfully
 
     pull_policy: if_not_present
     restart: unless-stopped
@@ -47,6 +49,24 @@ services:
       timeout: 5s
       retries: 10
       start_period: 10s
+
+    networks:
+      - travel-network
+
+
+  migrations:
+    build:
+      context: .
+      dockerfile: migration_job/Dockerfile
+
+    container_name: travel-migrations
+
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@db:5432/travel_db
+
+    depends_on:
+      db:
+        condition: service_healthy
 
     networks:
       - travel-network

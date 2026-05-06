@@ -4,7 +4,6 @@ from sqlalchemy.orm import sessionmaker, DeclarativeBase
 from src.config import get_settings
 
 
-# Base class for all ORM models
 class Base(DeclarativeBase):
     pass
 

@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException
 from typing import List
 
 from src.dependencies.user_dependency import get_user_storage
@@ -23,7 +23,7 @@ def get_users(storage: UserStorage = Depends(get_user_storage)):
 
 @router.get("/{user_id}", response_model=User)
 def get_user(
-    user_id: int,   # 👈 FIX
+    user_id: int,
     storage: UserStorage = Depends(get_user_storage)
 ):
     return storage.get_user(user_id)
@@ -31,7 +31,18 @@ def get_user(
 
 @router.delete("/{user_id}")
 def delete_user(
-    user_id: int,   # 👈 FIX
+    user_id: int,
     storage: UserStorage = Depends(get_user_storage)
 ):
     return storage.delete_user(user_id)
+
+@router.put("/{user_id}", response_model=User)
+def update_user(
+    user_id: int,
+    updated_user: User,
+    storage: UserStorage = Depends(get_user_storage)
+):
+    user = storage.update_user(user_id, updated_user)
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    return user
