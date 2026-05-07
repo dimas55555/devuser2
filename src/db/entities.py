@@ -47,4 +47,5 @@ class Booking(Base):
     id = Column(Integer, primary_key=True)
     type = Column(String)
 
+    user_id = Column(Integer, ForeignKey("travel.users.id"))
     trip_id = Column(Integer, ForeignKey("travel.trips.id"))

@@ -1,8 +1,8 @@
 from pydantic import BaseModel
+from typing import Optional
 
 
 class Trip(BaseModel):
     id: int | None = None
     title: str
-    description: str | None = None
     user_id: int

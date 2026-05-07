@@ -1,6 +1,4 @@
-import uuid
-from typing import List
-
+from typing import List, Optional
 from sqlalchemy.orm import Session
 
 from src.db.entities import Booking as BookingDB
@@ -15,18 +13,54 @@ class BookingRepository(BookingStorage):
 
     def create_booking(self, booking: BookingModel) -> BookingModel:
         db_booking = BookingDB(
-            id=uuid.uuid4(),
-            name=booking.name
+            type=booking.type,
+            user_id=booking.user_id,
+            trip_id=booking.trip_id
         )
 
         self.db.add(db_booking)
         self.db.commit()
         self.db.refresh(db_booking)
 
-        return BookingModel(**db_booking.__dict__)
+        return BookingModel(
+            id=db_booking.id,
+            type=db_booking.type,
+            user_id=db_booking.user_id,
+            trip_id=db_booking.trip_id
+        )
 
     def get_bookings(self) -> List[BookingModel]:
+        bookings = self.db.query(BookingDB).all()
+
         return [
-            BookingModel(**b.__dict__)
-            for b in self.db.query(BookingDB).all()
+            BookingModel(
+                id=b.id,
+                type=b.type,
+                user_id=b.user_id,
+                trip_id=b.trip_id
+            )
+            for b in bookings
         ]
+
+    def get_booking(self, booking_id: int) -> Optional[BookingModel]:
+        b = self.db.query(BookingDB).filter(BookingDB.id == booking_id).first()
+
+        if not b:
+            return None
+
+        return BookingModel(
+            id=b.id,
+            type=b.type,
+            user_id=b.user_id,
+            trip_id=b.trip_id
+        )
+
+    def delete_booking(self, booking_id: int) -> bool:
+        b = self.db.query(BookingDB).filter(BookingDB.id == booking_id).first()
+
+        if not b:
+            return False
+
+        self.db.delete(b)
+        self.db.commit()
+        return True
