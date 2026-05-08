@@ -4,7 +4,7 @@ set -e
 
 echo "Waiting for database..."
 
-until pg_isready -h db -U postgres; do
+until pg_isready -h db -U postgres || pg_isready -h postgres -U postgres; do
   sleep 2
 done
 

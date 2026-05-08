@@ -1,0 +1,33 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: migration-job
+  namespace: travel-planner
+spec:
+  backoffLimit: 5
+  template:
+    spec:
+      restartPolicy: OnFailure
+
+      containers:
+        - name: migrations
+          image: sydorenkodmytro2021/travel-planner-api-migrations:latest
+
+          env:
+            - name: DATABASE_URL
+              value: postgresql://postgres:postgres@postgres:5432/travel_db
+
+          command: ["/bin/sh", "-c"]
+          args:
+            - |
+              echo "Waiting for database..."
+
+              until pg_isready -h postgres -p 5432 -U postgres; do
+                echo "DB not ready yet..."
+                sleep 2
+              done
+
+              echo "Running migrations..."
+              alembic upgrade head
+
+              echo "Done"

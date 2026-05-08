@@ -1,0 +1,27 @@
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: travel-migration-job
+  namespace: travel-planner
+
+spec:
+  backoffLimit: 3
+
+  template:
+    metadata:
+      labels:
+        app: travel-migration-job
+
+    spec:
+      restartPolicy: Never
+
+      containers:
+        - name: migrations
+          image: sydorenkodmytro2021/travel-planner-api-migrations:latest
+
+          env:
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: travel-db-secret
+                  key: DATABASE_URL
