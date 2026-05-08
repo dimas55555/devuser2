@@ -52,13 +52,23 @@ stages:
     serviceName: $(ServiceName)
     dockerfilePath: 'Dockerfile'
 
-# Stage 4 — Post-Build
+# Stage 4 — Docker Build and Push (migration)
+- template: templates/stages/docker-build-push-migrations-stage.yml@ci-templates
+  parameters:
+    vmImage: 'ubuntu-latest'
+    appVersion: $[ stageDependencies.PreBuild.JobID_PreBuild.outputs['CalculateAppVersion.APP_VERSION'] ]
+    dockerId: $(DockerID)
+    dockerToken: $(DockerToken)
+    serviceName: $(ServiceName)
+
+# Stage 5 — Post-Build
 - stage: PostBuild
   displayName: 'Post-Build'
   dependsOn:
     - PreBuild
     - BuildTest
     - DockerBuildAndPush
+    - DockerBuildAndPushMigrations
 
   condition: eq(variables['Build.SourceBranch'], 'refs/heads/main')
   variables:
