@@ -1,0 +1,11 @@
+apiVersion: v1
+kind: ConfigMap
+
+metadata:
+  name: travel-config
+  namespace: {{ .Values.namespace }}
+
+data:
+  TEST_MODE: "{{ .Values.config.testMode }}"
+  APP_VERSION: "{{ .Values.config.appVersion }}"
+  DATABASE_URL: "{{ .Values.secret.databaseUrl }}"

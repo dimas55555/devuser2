@@ -1,0 +1,46 @@
+apiVersion: apps/v1
+kind: Deployment
+
+metadata:
+  name: travel-api
+  namespace: {{ .Values.namespace }}
+
+spec:
+  replicas: {{ .Values.app.replicas }}
+
+  selector:
+    matchLabels:
+      app: travel-api
+
+  template:
+    metadata:
+      labels:
+        app: travel-api
+
+    spec:
+      containers:
+        - name: travel-api
+          image: "{{ .Values.app.image.repository }}:{{ .Values.app.image.tag }}"
+          imagePullPolicy: {{ .Values.app.image.pullPolicy }}
+
+          ports:
+            - containerPort: {{ .Values.app.port }}
+
+          env:
+            - name: TEST_MODE
+              valueFrom:
+                configMapKeyRef:
+                  name: travel-config
+                  key: TEST_MODE
+
+            - name: APP_VERSION
+              valueFrom:
+                configMapKeyRef:
+                  name: travel-config
+                  key: APP_VERSION
+
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: travel-db-secret
+                  key: DATABASE_URL

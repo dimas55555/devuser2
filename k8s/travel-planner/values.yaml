@@ -1,0 +1,56 @@
+namespace: travel-planner
+
+config:
+  testMode: "false"
+  appVersion: "1.0.1"
+
+secret:
+  postgresUser: postgres
+  postgresPassword: postgres
+  postgresDb: travel_db
+  databaseUrl: postgresql://postgres:postgres@postgres:5432/travel_db
+
+postgres:
+  image:
+    repository: postgres
+    tag: "16"
+    pullPolicy: IfNotPresent
+
+  service:
+    port: 5432
+
+  storage:
+    size: 1Gi
+    className: travel-storage-class
+
+migration:
+  image:
+    repository: sydorenkodmytro2021/travel-planner-api-migrations
+    tag: latest
+    pullPolicy: IfNotPresent
+
+app:
+  replicas: 1
+
+  image:
+    repository: sydorenkodmytro2021/travel-planner-api
+    tag: latest
+    pullPolicy: IfNotPresent
+
+  port: 8000
+
+  service:
+    type: ClusterIP
+
+ingress:
+  enabled: true
+  className: nginx
+
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /
+
+  hosts:
+    - host: travel-planner.local
+      paths:
+        - path: /
+          pathType: Prefix
